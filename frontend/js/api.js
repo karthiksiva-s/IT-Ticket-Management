@@ -32,7 +32,7 @@ function getUser() {
 function requireAuth(requiredRole = null) {
     const user = getUser();
     if (!user) {
-        window.location.href = "../index.html";
+        window.location.href = "/index.html";
         return null;
     }
     if (requiredRole && user.role !== requiredRole) {
@@ -53,7 +53,7 @@ function requireAuth(requiredRole = null) {
 function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    window.location.href = "/pages/index.html";
+    window.location.href = "/index.html";
 }
 
 // -------------------------------------------------------
