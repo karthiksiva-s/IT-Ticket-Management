@@ -1,7 +1,5 @@
-# requirements.txt
-# Install all dependencies with: pip install -r requirements.txt
-
-fastapi==0.111.0        # The web framework
-uvicorn==0.29.0         # The server that runs FastAPI
-pydantic==2.7.1         # Data validation (used by FastAPI automatically)
-PyJWT==2.8.0            # For creating/reading JWT tokens
+fastapi
+uvicorn[standard]
+python-multipart
+jinja2
+PyJWT
