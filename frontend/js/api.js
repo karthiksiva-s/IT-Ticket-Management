@@ -4,7 +4,7 @@
 // It automatically adds the JWT token to every request.
 // ============================================================
 
-const API_BASE = "http://127.0.0.1:8000";  // Backend server address
+const API_BASE = "https://it-ticket-management-3sj8.onrender.com";  // Backend server address
 
 // -------------------------------------------------------
 // getToken() — Reads the JWT token from localStorage
