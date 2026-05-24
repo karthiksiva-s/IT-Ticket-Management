@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — IT Ticket System</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="icon">🎫</div>
+            IT Tickets
+        </div>
+        <div class="sidebar-user">
+            <div>Admin Panel</div>
+            <strong id="sidebarUsername">Admin</strong>
+            <div class="role-badge">Administrator</div>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="admin-dashboard.html" class="active">🏠 Dashboard</a></li>
+            <li><a href="admin-tickets.html">📋 All Tickets</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <button class="btn btn-danger btn-full btn-sm" onclick="logout()">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <div class="page-header">
+            <h1>Admin Dashboard</h1>
+            <p>System-wide ticket overview and high priority alerts</p>
+        </div>
+
+        <!-- 4 stat cards for admin (includes High Priority count) -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalTickets">—</div>
+                <div class="stat-label">Total Tickets</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-value" id="openTickets">—</div>
+                <div class="stat-label">Open Tickets</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="closedTickets">—</div>
+                <div class="stat-label">Closed / Canceled</div>
+            </div>
+            <div class="stat-card red">
+                <div class="stat-value" id="highPriorityCount">—</div>
+                <div class="stat-label">High Priority</div>
+            </div>
+        </div>
+
+        <!-- High Priority Tickets Table -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🔴 High Priority Tickets</h2>
+                <a href="admin-tickets.html" class="btn btn-secondary btn-sm">View All Tickets →</a>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticket ID</th>
+                            <th>Subject</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="highPriorityBody">
+                        <!-- Filled dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+
+<!-- VIEW + UPDATE TICKET MODAL (Admin version) -->
+<div class="modal-overlay" id="viewModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Ticket Details</h3>
+            <button class="modal-close" onclick="closeViewModal()">✕</button>
+        </div>
+        <div class="modal-body" id="ticketDetailContent"></div>
+    </div>
+</div>
+
+
+<script src="../js/api.js"></script>
+<script>
+    const user = requireAuth("admin");
+    if (user) {
+        document.getElementById("sidebarUsername").textContent = user.username;
+        loadDashboard();
+    }
+
+    // -------------------------------------------------------
+    // loadDashboard() — Loads stats and high priority table
+    // -------------------------------------------------------
+    async function loadDashboard() {
+        try {
+            const stats = await apiFetch("/tickets/admin/stats");
+
+            // Update stat cards
+            document.getElementById("totalTickets").textContent = stats.total;
+            document.getElementById("openTickets").textContent = stats.open;
+            document.getElementById("closedTickets").textContent = stats.closed;
+            document.getElementById("highPriorityCount").textContent = stats.high_priority;
+
+            // Build high priority tickets table
+            const tbody = document.getElementById("highPriorityBody");
+            if (stats.high_priority_tickets.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="5">
+                        <div class="empty-state">
+                            <div class="empty-icon">✅</div>
+                            <p>No high priority tickets right now!</p>
+                        </div>
+                    </td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = stats.high_priority_tickets.map(t => `
+                <tr>
+                    <td style="font-family:monospace; font-size:0.82rem;">${t.ticket_id}</td>
+                    <td>${t.subject}</td>
+                    <td>${getPriorityBadge(t.priority)}</td>
+                    <td>${getStatusBadge(t.status)}</td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="showTicketDetails('${t.ticket_id}')">
+                            👁 View
+                        </button>
+                    </td>
+                </tr>
+            `).join("");
+
+        } catch (err) {
+            console.error("Dashboard load failed:", err.message);
+        }
+    }
+
+    // -------------------------------------------------------
+    // showTicketDetails(ticketId) — Admin popup
+    // Shows full details + update form if ticket is Open/In Progress
+    // -------------------------------------------------------
+    async function showTicketDetails(ticketId) {
+        const modal = document.getElementById("viewModal");
+        const content = document.getElementById("ticketDetailContent");
+        content.innerHTML = `<p style="text-align:center; color:var(--gray);">Loading...</p>`;
+        modal.classList.add("open");
+
+        try {
+            const t = await apiFetch(`/tickets/${ticketId}`);
+
+            // Admin action section — only show if ticket is not Closed/Canceled
+            const canEdit = !["Closed", "Canceled"].includes(t.status);
+
+            const adminActionSection = canEdit ? `
+                <hr class="divider">
+                <h4 style="margin-bottom:1rem; color:var(--primary); font-size:0.95rem;">Update Ticket</h4>
+
+                <div class="form-group">
+                    <label>Update Status</label>
+                    <select id="newStatus">
+                        <option value="">— No change —</option>
+                        <option value="Open" ${t.status === 'Open' ? 'selected' : ''}>Open</option>
+                        <option value="In Progress" ${t.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Admin Response</label>
+                    <textarea id="adminResponse" placeholder="Type your response to the user...">${t.admin_response || ''}</textarea>
+                </div>
+
+                <button class="btn btn-success btn-full" onclick="submitUpdate('${t.ticket_id}')">
+                    💾 Save Changes
+                </button>
+            ` : `
+                <hr class="divider">
+                <p style="color:var(--gray); font-size:0.88rem;">
+                    This ticket is <strong>${t.status}</strong> — no further actions available.
+                </p>
+            `;
+
+            const adminResponseSection = t.admin_response ? `
+                <div class="detail-item detail-full">
+                    <label>Admin Response</label>
+                    <div class="response-box">${t.admin_response}</div>
+                </div>
+            ` : "";
+
+            const cancelReasonSection = t.cancel_reason ? `
+                <div class="detail-item detail-full">
+                    <label>Cancel Reason (by User)</label>
+                    <div class="cancel-box">${t.cancel_reason}</div>
+                </div>
+            ` : "";
+
+            content.innerHTML = `
+                <div class="detail-grid">
+                    <div class="detail-item"><label>Ticket ID</label><span>${t.ticket_id}</span></div>
+                    <div class="detail-item"><label>Date</label><span>${t.created_date}</span></div>
+                    <div class="detail-item"><label>Employee Name</label><span>${t.employee_name}</span></div>
+                    <div class="detail-item"><label>Employee ID</label><span>${t.employee_id}</span></div>
+                    <div class="detail-item"><label>Asset ID</label><span>${t.asset_id}</span></div>
+                    <div class="detail-item"><label>Category</label><span>${t.category}</span></div>
+                    <div class="detail-item"><label>Priority</label><span>${getPriorityBadge(t.priority)}</span></div>
+                    <div class="detail-item"><label>Status</label><span>${getStatusBadge(t.status)}</span></div>
+                    <div class="detail-item detail-full"><label>Subject</label><span>${t.subject}</span></div>
+                    <div class="detail-item detail-full">
+                        <label>Description</label>
+                        <div class="detail-description">${t.description}</div>
+                    </div>
+                    ${adminResponseSection}
+                    ${cancelReasonSection}
+                </div>
+                ${adminActionSection}
+            `;
+
+        } catch (err) {
+            content.innerHTML = `<p style="color:var(--danger);">${err.message}</p>`;
+        }
+    }
+
+    // -------------------------------------------------------
+    // submitUpdate(ticketId) — Admin saves status/response changes
+    // -------------------------------------------------------
+    async function submitUpdate(ticketId) {
+        const status = document.getElementById("newStatus").value;
+        const adminResponse = document.getElementById("adminResponse").value.trim();
+
+        if (!status && !adminResponse) {
+            showToast("Please update status or add a response.", "error");
+            return;
+        }
+
+        try {
+            await apiFetch(`/tickets/${ticketId}/update`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    status: status || null,
+                    admin_response: adminResponse || null
+                })
+            });
+
+            showToast("Ticket updated successfully!");
+            closeViewModal();
+            loadDashboard();   // Refresh stats
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    }
+
+    function closeViewModal() { document.getElementById("viewModal").classList.remove("open"); }
+    document.getElementById("viewModal").addEventListener("click", e => {
+        if (e.target === e.currentTarget) closeViewModal();
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Tickets — IT Ticket System</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div class="layout">
+
+    <!-- SIDEBAR (same as dashboard) -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="icon">🎫</div>
+            IT Tickets
+        </div>
+        <div class="sidebar-user">
+            <div>Welcome,</div>
+            <strong id="sidebarUsername">User</strong>
+            <div class="role-badge">Employee</div>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="user-dashboard.html">🏠 Dashboard</a></li>
+            <li><a href="user-tickets.html" class="active">📋 All Tickets</a></li>
+            <li><a href="#" onclick="openCreateModal()">➕ Create Ticket</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <button class="btn btn-danger btn-full btn-sm" onclick="logout()">🚪 Logout</button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <div class="page-header">
+            <h1>All My Tickets</h1>
+            <p>Complete history of all your support tickets</p>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Ticket List</h2>
+                <button class="btn btn-success btn-sm" onclick="openCreateModal()">➕ Create Ticket</button>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticket ID</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticketsBody">
+                        <!-- Filled by loadTickets() -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+
+<!-- CREATE TICKET MODAL (same as dashboard) -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Create New Support Ticket</h3>
+            <button class="modal-close" onclick="closeCreateModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="detail-grid">
+                <div class="form-group">
+                    <label>Employee Name</label>
+                    <input type="text" id="empName" placeholder="Your full name">
+                </div>
+                <div class="form-group">
+                    <label>Employee ID</label>
+                    <input type="text" id="empId" placeholder="e.g., EMP-001">
+                </div>
+                <div class="form-group">
+                    <label>Asset ID</label>
+                    <input type="text" id="assetId" placeholder="e.g., LAPTOP-042">
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="category">
+                        <option value="">Select category...</option>
+                        <option>Hardware</option>
+                        <option>Software</option>
+                        <option>Network</option>
+                        <option>Access & Permissions</option>
+                        <option>Email</option>
+                        <option>Printer</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+                <div class="form-group detail-full">
+                    <label>Subject</label>
+                    <input type="text" id="subject" placeholder="Brief description of the issue">
+                </div>
+                <div class="form-group detail-full">
+                    <label>Description</label>
+                    <textarea id="description" placeholder="Explain the issue in detail..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Priority</label>
+                    <select id="priority">
+                        <option value="">Select priority...</option>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+            </div>
+            <p class="error-text" id="createError" style="display:none; margin-bottom:0.75rem;"></p>
+            <div style="display:flex; gap:0.75rem;">
+                <button class="btn btn-secondary" onclick="closeCreateModal()" style="flex:1;">Cancel</button>
+                <button class="btn btn-success" onclick="submitTicket()" style="flex:1;">Submit Ticket</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- VIEW TICKET DETAILS MODAL -->
+<div class="modal-overlay" id="viewModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Ticket Details</h3>
+            <button class="modal-close" onclick="closeViewModal()">✕</button>
+        </div>
+        <div class="modal-body" id="ticketDetailContent"></div>
+    </div>
+</div>
+
+
+<script src="../js/api.js"></script>
+<script>
+    const user = requireAuth("user");
+    if (user) {
+        document.getElementById("sidebarUsername").textContent = user.username;
+        loadTickets();
+    }
+
+    // -------------------------------------------------------
+    // loadTickets() — Fetches ALL user tickets and renders the full table
+    // -------------------------------------------------------
+    async function loadTickets() {
+        const tbody = document.getElementById("ticketsBody");
+        try {
+            const tickets = await apiFetch("/tickets/my");
+
+            if (tickets.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="6">
+                        <div class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <p>No tickets yet.</p>
+                        </div>
+                    </td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = tickets.map(t => `
+                <tr>
+                    <td style="font-family:monospace; font-size:0.82rem;">${t.ticket_id}</td>
+                    <td>${t.subject}</td>
+                    <td>${getStatusBadge(t.status)}</td>
+                    <td>${getPriorityBadge(t.priority)}</td>
+                    <td>${t.created_date}</td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="showTicketDetails('${t.ticket_id}')">
+                            👁 View
+                        </button>
+                    </td>
+                </tr>
+            `).join("");
+
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger); padding:1rem;">${err.message}</td></tr>`;
+        }
+    }
+
+    // -------------------------------------------------------
+    // showTicketDetails — same as dashboard version
+    // -------------------------------------------------------
+    async function showTicketDetails(ticketId) {
+        const modal = document.getElementById("viewModal");
+        const content = document.getElementById("ticketDetailContent");
+        content.innerHTML = `<p style="text-align:center; color:var(--gray);">Loading...</p>`;
+        modal.classList.add("open");
+
+        try {
+            const t = await apiFetch(`/tickets/${ticketId}`);
+
+            const cancelSection = t.status === "Open" ? `
+                <hr class="divider">
+                <div id="cancelArea">
+                    <button class="btn btn-danger btn-sm" onclick="showCancelInput('${t.ticket_id}')">
+                        🚫 Cancel This Ticket
+                    </button>
+                </div>
+            ` : "";
+
+            const adminResponseSection = t.admin_response ? `
+                <div class="detail-item detail-full">
+                    <label>Admin Response</label>
+                    <div class="response-box">${t.admin_response}</div>
+                </div>
+            ` : "";
+
+            const cancelReasonSection = t.cancel_reason ? `
+                <div class="detail-item detail-full">
+                    <label>Cancel Reason</label>
+                    <div class="cancel-box">${t.cancel_reason}</div>
+                </div>
+            ` : "";
+
+            content.innerHTML = `
+                <div class="detail-grid">
+                    <div class="detail-item"><label>Ticket ID</label><span>${t.ticket_id}</span></div>
+                    <div class="detail-item"><label>Date</label><span>${t.created_date}</span></div>
+                    <div class="detail-item"><label>Employee Name</label><span>${t.employee_name}</span></div>
+                    <div class="detail-item"><label>Employee ID</label><span>${t.employee_id}</span></div>
+                    <div class="detail-item"><label>Asset ID</label><span>${t.asset_id}</span></div>
+                    <div class="detail-item"><label>Category</label><span>${t.category}</span></div>
+                    <div class="detail-item"><label>Priority</label><span>${getPriorityBadge(t.priority)}</span></div>
+                    <div class="detail-item"><label>Status</label><span>${getStatusBadge(t.status)}</span></div>
+                    <div class="detail-item detail-full"><label>Subject</label><span>${t.subject}</span></div>
+                    <div class="detail-item detail-full">
+                        <label>Description</label>
+                        <div class="detail-description">${t.description}</div>
+                    </div>
+                    ${adminResponseSection}
+                    ${cancelReasonSection}
+                </div>
+                ${cancelSection}
+            `;
+        } catch (err) {
+            content.innerHTML = `<p style="color:var(--danger);">${err.message}</p>`;
+        }
+    }
+
+    function showCancelInput(ticketId) {
+        document.getElementById("cancelArea").innerHTML = `
+            <div class="form-group">
+                <label>Enter Cancel Reason</label>
+                <textarea id="cancelReason" placeholder="Why are you canceling this ticket?"></textarea>
+            </div>
+            <div style="display:flex; gap:0.75rem;">
+                <button class="btn btn-secondary btn-sm" onclick="showTicketDetails('${ticketId}')">Back</button>
+                <button class="btn btn-danger btn-sm" onclick="submitCancel('${ticketId}')">Confirm Cancel</button>
+            </div>
+        `;
+    }
+
+    async function submitCancel(ticketId) {
+        const reason = document.getElementById("cancelReason").value.trim();
+        if (!reason) { showToast("Please enter a cancel reason.", "error"); return; }
+        try {
+            await apiFetch(`/tickets/${ticketId}/cancel`, {
+                method: "PUT",
+                body: JSON.stringify({ cancel_reason: reason })
+            });
+            showToast("Ticket canceled successfully.");
+            closeViewModal();
+            loadTickets();
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    }
+
+    async function submitTicket() {
+        const errorEl = document.getElementById("createError");
+        errorEl.style.display = "none";
+        const payload = {
+            employee_name: document.getElementById("empName").value.trim(),
+            employee_id: document.getElementById("empId").value.trim(),
+            asset_id: document.getElementById("assetId").value.trim(),
+            category: document.getElementById("category").value,
+            subject: document.getElementById("subject").value.trim(),
+            description: document.getElementById("description").value.trim(),
+            priority: document.getElementById("priority").value,
+        };
+        if (Object.values(payload).some(v => !v)) {
+            errorEl.textContent = "Please fill in all fields.";
+            errorEl.style.display = "block";
+            return;
+        }
+        try {
+            const result = await apiFetch("/tickets/create", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            showToast(`Ticket created! ID: ${result.ticket_id}`);
+            closeCreateModal();
+            loadTickets();
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.style.display = "block";
+        }
+    }
+
+    function openCreateModal() { document.getElementById("createModal").classList.add("open"); }
+    function closeCreateModal() { document.getElementById("createModal").classList.remove("open"); }
+    function closeViewModal() { document.getElementById("viewModal").classList.remove("open"); }
+
+    document.getElementById("createModal").addEventListener("click", e => { if (e.target === e.currentTarget) closeCreateModal(); });
+    document.getElementById("viewModal").addEventListener("click", e => { if (e.target === e.currentTarget) closeViewModal(); });
+</script>
+</body>
+</html>

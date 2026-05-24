@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register — IT Ticket System</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="auth-page">
+
+    <div class="auth-card">
+        <div class="auth-logo">
+            <div class="logo-icon">🎫</div>
+            IT Ticket System
+        </div>
+
+        <h1>Create Account</h1>
+        <p class="subtitle">Register to submit and track support tickets</p>
+
+        <!-- Register Form -->
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Choose a username">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Create a password">
+        </div>
+
+        <div class="form-group">
+            <label for="role">Account Type</label>
+            <select id="role">
+                <option value="user">User (Employee)</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+
+        <p class="error-text" id="registerError" style="display:none; margin-bottom:0.75rem;"></p>
+        <p style="color:var(--success); font-size:0.85rem; display:none; margin-bottom:0.75rem;" id="successMsg"></p>
+
+        <button class="btn btn-primary" onclick="handleRegister()">
+            Create Account
+        </button>
+
+        <div class="auth-link">
+            Already have an account? 
+            <a href="../../index.html">Login here</a>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        // -------------------------------------------------------
+        // handleRegister() — Sends user data to backend to create account
+        // On success → shows message and redirects to login after 2s
+        // -------------------------------------------------------
+        async function handleRegister() {
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const role = document.getElementById("role").value;
+            const errorEl = document.getElementById("registerError");
+            const successEl = document.getElementById("successMsg");
+
+            errorEl.style.display = "none";
+            successEl.style.display = "none";
+
+            if (!username || !password) {
+                errorEl.textContent = "Username and password are required.";
+                errorEl.style.display = "block";
+                return;
+            }
+
+            if (password.length < 4) {
+                errorEl.textContent = "Password must be at least 4 characters.";
+                errorEl.style.display = "block";
+                return;
+            }
+
+            try {
+                await apiFetch("/auth/register", {
+                    method: "POST",
+                    body: JSON.stringify({ username, password, role })
+                });
+
+                successEl.textContent = "Account created! Redirecting to login...";
+                successEl.style.display = "block";
+
+                // Redirect to login after 2 seconds
+                setTimeout(() => {
+                    window.location.href = "../../index.html";
+                }, 2000);
+
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.style.display = "block";
+            }
+        }
+
+        document.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") handleRegister();
+        });
+    </script>
+</body>
+</html>

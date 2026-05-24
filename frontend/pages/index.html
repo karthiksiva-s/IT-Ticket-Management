@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — IT Ticket System</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="auth-page">
+
+    <div class="auth-card">
+        <!-- Logo -->
+        <div class="auth-logo">
+            <div class="logo-icon">🎫</div>
+            IT Ticket System
+        </div>
+
+        <h1>Welcome Back</h1>
+        <p class="subtitle">Sign in to manage your support tickets</p>
+
+        <!-- Login Form -->
+        <div id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter your username">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter your password">
+            </div>
+
+            <!-- Error message shown if login fails -->
+            <p class="error-text" id="loginError" style="display:none; margin-bottom:0.75rem;"></p>
+
+            <button class="btn btn-primary" onclick="handleLogin()">
+                Sign In
+            </button>
+        </div>
+
+        <!-- Link to Register page -->
+        <div class="auth-link">
+            Don't have an account? 
+            <a href="../pages/register.html">Register here</a>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        // -------------------------------------------------------
+        // handleLogin() — Called when user clicks "Sign In"
+        // 1. Gets username + password from inputs
+        // 2. Sends POST /auth/login to the backend
+        // 3. Saves token + user info in localStorage
+        // 4. Redirects to the correct dashboard based on role
+        // -------------------------------------------------------
+        async function handleLogin() {
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const errorEl = document.getElementById("loginError");
+
+            // Basic validation
+            if (!username || !password) {
+                errorEl.textContent = "Please enter both username and password.";
+                errorEl.style.display = "block";
+                return;
+            }
+
+            errorEl.style.display = "none";
+
+            try {
+                // Send login request to backend
+                const data = await apiFetch("/auth/login", {
+                    method: "POST",
+                    body: JSON.stringify({ username, password })
+                });
+
+                // Save token and user info for use on other pages
+                localStorage.setItem("token", data.token);
+                localStorage.setItem("user", JSON.stringify({
+                    username: data.username,
+                    role: data.role,
+                    token: data.token
+                }));
+
+                // Redirect based on role
+                if (data.role === "admin") {
+                    window.location.href = "../pages/admin-dashboard.html";
+                } else {
+                    window.location.href = "../pages/user-dashboard.html";
+                }
+
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.style.display = "block";
+            }
+        }
+
+        // Allow pressing Enter to submit the form
+        document.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") handleLogin();
+        });
+    </script>
+</body>
+</html>
