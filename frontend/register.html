@@ -71,8 +71,12 @@
                 return;
             }
 
-            if (password.length < 4) {
-                errorEl.textContent = "Password must be at least 4 characters.";
+            const passwordRegex =
+                /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+            if (!passwordRegex.test(password)) {
+                errorEl.textContent =
+                "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.";
                 errorEl.style.display = "block";
                 return;
             }
